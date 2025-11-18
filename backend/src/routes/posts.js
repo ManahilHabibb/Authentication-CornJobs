@@ -16,12 +16,22 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/posts - protected endpoint
-router.post("/", requireAuth(), async (req, res) => {
+router.post("/", async (req, res) => {
   try {
+    // Check if user is authenticated (Clerk middleware adds req.auth as a function)
+    const auth = req.auth ? req.auth() : null;
+    if (!auth || !auth.userId) {
+      return res.status(401).json({ message: "Unauthorized - Please sign in" });
+    }
+
     const { content } = req.body;
 
+    if (!content || !content.trim()) {
+      return res.status(400).json({ message: "Content is required" });
+    }
+
     // Get the authenticated user ID from Clerk session
-    const clerkUserId = req.auth.userId;
+    const clerkUserId = auth.userId;
 
     // Optionally fetch user info from Clerk if needed
     const user = await clerkClient.users.getUser(clerkUserId);
@@ -29,15 +39,15 @@ router.post("/", requireAuth(), async (req, res) => {
     const post = new Post({
       content,
       clerkUserId,
-      userEmail: user.emailAddresses[0].emailAddress, // example
-      userName: user.firstName + " " + user.lastName, // example
+      userEmail: user.emailAddresses[0]?.emailAddress || "unknown",
+      userName: `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Anonymous",
     });
 
     const saved = await post.save();
     res.status(201).json(saved);
   } catch (err) {
-    console.error(err);
-    res.status(400).json({ message: "Invalid data" });
+    console.error("Error creating post:", err);
+    res.status(400).json({ message: "Invalid data", error: err.message });
   }
 });
 
