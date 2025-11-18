@@ -1,11 +1,10 @@
+// backend/src/routes/posts.js
 const express = require("express");
 const router = express.Router();
 const Post = require("../models/Post");
-const { Clerk } = require("@clerk/clerk-sdk-node");
+const { clerkClient, requireAuth } = require("@clerk/express");
 
-const clerk = new Clerk({ apiKey: process.env.CLERK_API_KEY });
-
-// GET /api/posts
+// GET /api/posts - public endpoint
 router.get("/", async (req, res) => {
   try {
     const posts = await Post.find().sort({ createdAt: -1 }).limit(100);
@@ -16,14 +15,25 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST /api/posts
-router.post("/", async (req, res) => {
+// POST /api/posts - protected endpoint
+router.post("/", requireAuth(), async (req, res) => {
   try {
-    // Optionally verify Clerk session if frontend passes a session token or user id.
-    // For now we accept public posts; to require auth, pass token from client and verify here.
-    const { content, clerkUserId } = req.body;
-    const p = new Post({ content, clerkUserId });
-    const saved = await p.save();
+    const { content } = req.body;
+
+    // Get the authenticated user ID from Clerk session
+    const clerkUserId = req.auth.userId;
+
+    // Optionally fetch user info from Clerk if needed
+    const user = await clerkClient.users.getUser(clerkUserId);
+
+    const post = new Post({
+      content,
+      clerkUserId,
+      userEmail: user.emailAddresses[0].emailAddress, // example
+      userName: user.firstName + " " + user.lastName, // example
+    });
+
+    const saved = await post.save();
     res.status(201).json(saved);
   } catch (err) {
     console.error(err);

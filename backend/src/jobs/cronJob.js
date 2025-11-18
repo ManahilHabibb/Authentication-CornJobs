@@ -1,42 +1,50 @@
+// backend/src/jobs/cronJob.js
 const cron = require("node-cron");
-const { sendReportMail } = require("../services/mailer");
-
-// Schedule defined by env; default: every 2 minutes
-const schedule = process.env.CRON_SCHEDULE_EVERY_2_MIN || "*/2 * * * *";
-const timezone = process.env.CRON_TIMEZONE || "UTC";
-const mailTo = process.env.MAIL_TO || process.env.SMTP_USER || null;
+const nodemailer = require("nodemailer");
 
 function startCron() {
-  if (!mailTo) {
-    console.warn("MAIL_TO not set — cron job will not send emails but will still run.");
+  if (
+    !process.env.SMTP_HOST ||
+    !process.env.SMTP_USER ||
+    !process.env.SMTP_PASS ||
+    !process.env.MAIL_TO
+  ) {
+    console.log("SMTP not configured. Mailing disabled.");
+    return;
   }
 
-  // Create a job that runs every 2 minutes (or as per CRON_SCHEDULE_EVERY_2_MIN)
-  cron.schedule(
-    schedule,
-    async () => {
-      const now = new Date();
-      const text = `Automated report:\nCurrent server time: ${now.toString()}\n\nThis is a scheduled report sent every 2 minutes.`;
-      console.log(`[cron] Running scheduled task at ${now.toISOString()}`);
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT) || 587,
+    secure: false, // true for 465, false for 587
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
 
+  // Schedule cron job every 2 minutes
+  cron.schedule(
+    process.env.CRON_SCHEDULE_EVERY_2_MIN || "*/2 * * * *",
+    async () => {
       try {
-        if (mailTo) {
-          await sendReportMail(mailTo, `Automated report - ${now.toISOString()}`, text);
-          console.log(`[cron] Email sent to ${mailTo}`);
-        } else {
-          console.log(`[cron] No MAIL_TO configured - skipping email send. Current time: ${now.toISOString()}`);
-        }
+        const info = await transporter.sendMail({
+          from: `"Report Bot" <${process.env.SMTP_USER}>`,
+          to: process.env.MAIL_TO,
+          subject: "Scheduled Report",
+          text: `Current server time: ${new Date().toISOString()}`,
+        });
+        console.log("Cron email sent:", info.messageId);
       } catch (err) {
-        console.error("[cron] Error sending scheduled email:", err);
+        console.error("Cron email error:", err);
       }
     },
     {
-      scheduled: true,
-      timezone
+      timezone: process.env.CRON_TIMEZONE || "UTC",
     }
   );
 
-  console.log(`[cron] Scheduled job started: schedule=${schedule} timezone=${timezone}`);
+  console.log("Cron job started: sending email every 2 minutes");
 }
 
 module.exports = { startCron };
