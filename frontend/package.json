@@ -1,0 +1,26 @@
+{
+  "name": "social-dashboard-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .js,.jsx"
+  },
+  "dependencies": {
+    "@clerk/clerk-react": "^5.0.0",
+    "@reduxjs/toolkit": "^1.9.5",
+    "framer-motion": "^7.6.10",
+    "lucide-react": "^0.250.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-redux": "^8.0.5",
+    "react-router-dom": "^6.14.1"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "eslint": "^8.48.0",
+    "eslint-plugin-react": "^7.33.1"
+  }
+}
